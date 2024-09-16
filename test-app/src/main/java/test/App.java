@@ -9,6 +9,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -33,22 +34,18 @@ public class App {
         String apiKey = dotenv.get("API_KEY");
         KeepaAPI api = new KeepaAPI(apiKey);
 
-        // Define locale requests and file names
-        LocaleRequest[] localeRequests = {
-            new LocaleRequest(AmazonLocale.DE, 562066, "DE Keepa Data"),
-            new LocaleRequest(AmazonLocale.FR, 13921051, "FR Keepa Data"),
-            new LocaleRequest(AmazonLocale.IT, 412609031, "IT Keepa Data"),
-            new LocaleRequest(AmazonLocale.ES, 599370031, "ES Keepa Data")
-        };
+        processBestSellersForLocale(api, AmazonLocale.DE, 562066, "DE Keepa Data");
+        waitBeforeNextLocale();
+        processBestSellersForLocale(api, AmazonLocale.FR, 13921051, "FR Keepa Data");
+        // Call this after all locales have been processed
 
-        for (LocaleRequest localeRequest : localeRequests) {
-            processBestSellersForLocale(api, localeRequest.locale, localeRequest.nodeId, localeRequest.fileName);
-            try {
-                System.out.println("Waiting for 3.15 hours before processing the next locale...");
-                Thread.sleep(11340000);
-            } catch (InterruptedException e) {
-                System.out.println("Thread interrupted: " + e.getMessage());
-            }
+    }
+
+    private static void waitBeforeNextLocale() {
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            System.out.println("Thread interrupted: " + e.getMessage());
         }
     }
 
@@ -114,13 +111,13 @@ public class App {
         }
         int totalAsins = asins.size();
         System.out.println("Total ASINs to process: " + totalAsins);
-    
+        Collections.reverse(asins);
+
         // Process ASINs in batches
         for (int start = 0; start < totalAsins; start += BATCH_SIZE) {
             int end = Math.min(start + BATCH_SIZE, totalAsins);
             List<String> batch = asins.subList(start, end);
             String asinBatch = String.join(",", batch);
-    
             // Request for seller data first
             Request sellersRequest = Request.getProductRequest(locale, 90, 40, asinBatch);
     
@@ -152,6 +149,7 @@ public class App {
                             // Request for product data with the same batch of ASINs
                             String productAsinBatch = String.join(",", asinToWinnerCount.keySet());
                             Request productRequest = Request.getProductRequest(locale, 30, 40, productAsinBatch);
+                            productRequest.parameter.put("stock", "1");
     
                             api.sendRequest(productRequest)
                                 .done(productResult -> {
@@ -211,7 +209,7 @@ public class App {
                 .fail(failure -> System.out.println(failure));
     
             try {
-                Thread.sleep(8000); // Sleep between batches to avoid hitting API rate limits
+                Thread.sleep(20000); // Sleep between batches to avoid hitting API rate limits
             } catch (InterruptedException e) {
                 System.out.println("Thread interrupted: " + e.getMessage());
             }
@@ -231,18 +229,6 @@ public class App {
         return asins;
     }
 
-    static class LocaleRequest {
-        AmazonLocale locale;
-        int nodeId;
-        String fileName;
-
-        LocaleRequest(AmazonLocale locale, int nodeId, String fileName) {
-            this.locale = locale;
-            this.nodeId = nodeId;
-            this.fileName = fileName;
-        }
-    }
-
     private static void processProductData(JSONObject product, int winnerCount90, AmazonLocale locale) {
         try {
             // Initialize variables to capture each field
@@ -260,16 +246,16 @@ public class App {
 
             JSONArray buyBoxEligibleOfferCounts = product.optJSONArray("buyBoxEligibleOfferCounts");
 
-            int stockAmazon = product.optInt("stockAmazon", 0);
+            int stockAmazon = stats.optInt("stockAmazon", 0);
             double pickAndPackFee = fbaFees != null ? fbaFees.optDouble("pickAndPackFee", 0) : 0;
             double referralFeePercentage = product.optDouble("referralFeePercentage", 0.0);
-            int buyBoxPrice = stats != null ? stats.optInt("buyBoxPrice", 0) : 0;
+            int buyBoxPrice = stats.optInt("buyBoxPrice", 0);
             double referralFeeBuyBox = buyBoxPrice * (referralFeePercentage / 100);
 
             JSONArray eanList = product.optJSONArray("eanList");
             String asin = product.optString("asin");
             String brand = product.optString("brand");
-            String type = stats != null ? stats.optString("type", "N/A") : "N/A";
+            String type = stats.optString("type", "N/A");
 
             // Prepare the seller name lookup asynchronously
             CompletableFuture<String> sellerNameFuture = CompletableFuture.completedFuture("N/A");
@@ -362,6 +348,9 @@ public class App {
             // Determine the table name based on the locale
             String tableName = "products_" + locale.toString().toLowerCase();
     
+            // Create the table if it doesn't exist
+            createTableIfNotExists(connection, tableName);
+    
             // Prepare the SQL UPSERT statement
             String sql = "INSERT INTO " + tableName + " (title, sales_current, sales_avg30, monthly_sold, buy_box_shipping_current, buy_box_shipping_avg30, seller_name, winner_count_30, winner_count_90, buy_box_eligible_offer_count, stock_amazon, new_price_current, new_price_avg30, fba_fees, referral_fee_percentage, referral_buybox_fee, asin, ean_list, type, brand, last_updated) "
                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
@@ -386,12 +375,16 @@ public class App {
             preparedStatement.setInt(8, winnerCount30);
             preparedStatement.setInt(9, winnerCount90);
             preparedStatement.setInt(10, buyBoxEligibleOfferCount);
-            preparedStatement.setInt(11, stockAmazon);
+            if (stockAmazon == -2) {
+                preparedStatement.setNull(11, java.sql.Types.INTEGER);
+            } else {
+                preparedStatement.setInt(11, stockAmazon);
+            }
             preparedStatement.setDouble(12, newPriceCurrent);
             preparedStatement.setDouble(13, newPriceAvg30);
             preparedStatement.setDouble(14, pickAndPackFee / 100);  // Convert cents to Euros
             preparedStatement.setDouble(15, referralFeePercentage);
-            preparedStatement.setDouble(16, referralFeeBuyBox / 100);  // Convert cents to Euros
+            preparedStatement.setDouble(16, Math.round((referralFeeBuyBox / 100) * 100.0) / 100.0); // Convert cents to Euros
             preparedStatement.setString(17, asin);
             preparedStatement.setString(18, eanList);
             preparedStatement.setString(19, type);
@@ -423,6 +416,36 @@ public class App {
             }
         }
     }
+    
+    private static void createTableIfNotExists(Connection connection, String tableName) throws SQLException {
+        String createTableSQL = "CREATE TABLE IF NOT EXISTS " + tableName + " ("
+            + "title TEXT, "
+            + "sales_current DOUBLE PRECISION, "
+            + "sales_avg30 DOUBLE PRECISION, "
+            + "monthly_sold INT, "
+            + "buy_box_shipping_current DOUBLE PRECISION, "
+            + "buy_box_shipping_avg30 DOUBLE PRECISION, "
+            + "seller_name TEXT, "
+            + "winner_count_30 INT, "
+            + "winner_count_90 INT, "
+            + "buy_box_eligible_offer_count INT, "
+            + "stock_amazon INT, "
+            + "new_price_current DOUBLE PRECISION, "
+            + "new_price_avg30 DOUBLE PRECISION, "
+            + "fba_fees DOUBLE PRECISION, "
+            + "referral_fee_percentage DOUBLE PRECISION, "
+            + "referral_buybox_fee DOUBLE PRECISION, "
+            + "asin VARCHAR(20) PRIMARY KEY, "
+            + "ean_list TEXT, "
+            + "type TEXT, "
+            + "brand TEXT, "
+            + "last_updated TIMESTAMP"
+            + ");";
+    
+        try (PreparedStatement preparedStatement = connection.prepareStatement(createTableSQL)) {
+            preparedStatement.execute();
+        }
+    }   
 
     // Method to format EAN list as a single string with spaces
     private static String formatEanList(JSONArray eanList) {
