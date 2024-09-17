@@ -8,6 +8,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -38,7 +39,6 @@ public class App {
         waitBeforeNextLocale();
         processBestSellersForLocale(api, AmazonLocale.FR, 13921051, "FR Keepa Data");
         // Call this after all locales have been processed
-
     }
 
     private static void waitBeforeNextLocale() {
@@ -341,9 +341,13 @@ public class App {
             String dbUrl = dotenv.get("DB_URL");
             String dbUser = dotenv.get("DB_USER");
             String dbPassword = dotenv.get("DB_PASSWORD");
+            String schemaName = dotenv.get("DB_SCHEMA");
     
             // Establish the database connection
             connection = DriverManager.getConnection(dbUrl, dbUser, dbPassword);
+    
+            // Set the schema for this session
+            setSchemaForSession(connection, schemaName);
     
             // Determine the table name based on the locale
             String tableName = "products_" + locale.toString().toLowerCase();
@@ -416,7 +420,7 @@ public class App {
             }
         }
     }
-    
+
     private static void createTableIfNotExists(Connection connection, String tableName) throws SQLException {
         String createTableSQL = "CREATE TABLE IF NOT EXISTS " + tableName + " ("
             + "title TEXT, "
@@ -445,8 +449,8 @@ public class App {
         try (PreparedStatement preparedStatement = connection.prepareStatement(createTableSQL)) {
             preparedStatement.execute();
         }
-    }   
-
+    }
+       
     // Method to format EAN list as a single string with spaces
     private static String formatEanList(JSONArray eanList) {
         StringBuilder eanStringBuilder = new StringBuilder();
@@ -471,9 +475,13 @@ public class App {
             String dbUrl = dotenv.get("DB_URL");
             String dbUser = dotenv.get("DB_USER");
             String dbPassword = dotenv.get("DB_PASSWORD");
+            String schemaName = dotenv.get("DB_SCHEMA");
     
             // Establish the database connection
             connection = DriverManager.getConnection(dbUrl, dbUser, dbPassword);
+    
+            // Set the schema for this session
+            setSchemaForSession(connection, schemaName);
     
             // Determine the table name based on the locale
             String tableName = "products_" + locale.toString().toLowerCase();
@@ -506,5 +514,13 @@ public class App {
                 }
             }
         }
-    }    
+    }
+
+    private static void setSchemaForSession(Connection connection, String schemaName) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            // Set the schema for the session
+            String sql = "SET search_path TO " + schemaName;
+            statement.execute(sql);
+        }
+    }      
 }
