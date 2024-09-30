@@ -107,7 +107,7 @@ crontab -e
 
 ### 2. Add cronjob
 ```
-* * * * * Keepa_Solution/test-app/run_app.sh
+* * * * * Keepa_Solution/test-app/run_app.sh >> Keepa_Solution/test-app/cronjob.log 2>&1
 ```
 
 ### 3. Verify cronjob
