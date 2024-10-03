@@ -255,7 +255,7 @@ public class App {
             JSONArray eanList = product.optJSONArray("eanList");
             String asin = product.optString("asin");
             String brand = product.optString("brand");
-            String type = stats.optString("type", "N/A");
+            String type = product.optString("type", "N/A");
 
             // Prepare the seller name lookup asynchronously
             CompletableFuture<String> sellerNameFuture = CompletableFuture.completedFuture("N/A");
