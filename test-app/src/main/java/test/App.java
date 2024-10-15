@@ -9,6 +9,8 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -41,6 +43,11 @@ public class App {
         // Call this after all locales have been processed
     }
 
+    private static String getCurrentTime() {
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+        return dtf.format(LocalDateTime.now());
+    }
+
     private static void waitBeforeNextLocale() {
         try {
             Thread.sleep(1000);
@@ -57,10 +64,10 @@ public class App {
                 // Write the response to a file
                 try (FileWriter writer = new FileWriter(responseFileName + ".txt")) {
                     writer.write(result.toString());
-                    System.out.println("Data saved to: " + responseFileName + ".txt");
+                    System.out.println("[" + getCurrentTime() + "] " + "Data saved to: " + responseFileName + ".txt");
                     writer.flush();
                 } catch (IOException e) {
-                    System.out.println("Error writing to file: " + e.getMessage());
+                    System.out.println("[" + getCurrentTime() + "] " + "Error writing to file: " + e.getMessage());
                 }
 
                 // Read the response back from the file and process it
@@ -85,18 +92,18 @@ public class App {
                                 asinWriter.write(asinList.getString(i) + System.lineSeparator());
                             }
                             asinWriter.flush();
-                            System.out.println("ASIN list saved to: " + asinFileName);
+                            System.out.println("[" + getCurrentTime() + "] " + "ASIN list saved to: " + asinFileName);
                         } catch (IOException e) {
-                            System.out.println("Error writing ASIN list to file: " + e.getMessage());
+                            System.out.println("[" + getCurrentTime() + "] " + "Error writing ASIN list to file: " + e.getMessage());
                         }
 
                         // Process the first 1000 ASINs in batches for the current locale
                         processAsinBatches(asinFileName, api, locale);
                     } else {
-                        System.out.println("bestSellersList not found in the response.");
+                        System.out.println("[" + getCurrentTime() + "] " + "bestSellersList not found in the response.");
                     }
                 } catch (IOException | JSONException e) {
-                    System.out.println("Error processing JSON from file: " + e.getMessage());
+                    System.out.println("[" + getCurrentTime() + "] " + "Error processing JSON from file: " + e.getMessage());
                 }
             })
             .fail(failure -> System.out.println(failure));
@@ -110,7 +117,7 @@ public class App {
             asins = asins.subList(0, MAX_ASINS);
         }
         int totalAsins = asins.size();
-        System.out.println("Total ASINs to process: " + totalAsins);
+        System.out.println("[" + getCurrentTime() + "] " + "Total ASINs to process: " + totalAsins);
         Collections.reverse(asins);
 
         // Process ASINs in batches
@@ -125,7 +132,7 @@ public class App {
                 .done(sellersResult -> {
                     try (FileWriter sellerWriter = new FileWriter("sellers_data.json")) {
                         sellerWriter.write(sellersResult.toString());
-                        System.out.println("Seller data saved to file.");
+                        System.out.println("[" + getCurrentTime() + "] " + "Seller data saved to file.");
                         sellerWriter.flush();
     
                         // Read and process the seller data
@@ -155,7 +162,7 @@ public class App {
                                 .done(productResult -> {
                                     try (FileWriter writer = new FileWriter("batch_data.json")) {
                                         writer.write(productResult.toString());
-                                        System.out.println("Batch data saved to file.");
+                                        System.out.println("[" + getCurrentTime() + "] " + "Batch data saved to file.");
                                         writer.flush();
     
                                         // Read and process the JSON data for the batch
@@ -192,26 +199,26 @@ public class App {
                                             // Wait for all futures to complete
                                             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
                                         } catch (Exception e) {
-                                            System.out.println("Error parsing batch product JSON: " + e.getMessage());
+                                            System.out.println("[" + getCurrentTime() + "] " + "Error parsing batch product JSON: " + e.getMessage());
                                         }
                                     } catch (IOException e) {
-                                        System.out.println("Error writing batch data: " + e.getMessage());
+                                        System.out.println("[" + getCurrentTime() + "] " + "Error writing batch data: " + e.getMessage());
                                     }
                                 })
-                                .fail(failure -> System.out.println(failure));
+                                .fail(failure -> System.out.println("[" + getCurrentTime() + "] " + failure));
                         } catch (Exception e) {
-                            System.out.println("Error parsing seller product JSON: " + e.getMessage());
+                            System.out.println("[" + getCurrentTime() + "] " + "Error parsing seller product JSON: " + e.getMessage());
                         }
                     } catch (IOException e) {
-                        System.out.println("Error writing seller batch data: " + e.getMessage());
+                        System.out.println("[" + getCurrentTime() + "] " + "Error writing seller batch data: " + e.getMessage());
                     }
                 })
-                .fail(failure -> System.out.println(failure));
+                .fail(failure -> System.out.println("[" + getCurrentTime() + "] " + failure));
     
             try {
                 Thread.sleep(20000); // Sleep between batches to avoid hitting API rate limits
             } catch (InterruptedException e) {
-                System.out.println("Thread interrupted: " + e.getMessage());
+                System.out.println("[" + getCurrentTime() + "] " + "Thread interrupted: " + e.getMessage());
             }
         }
     }
@@ -224,7 +231,7 @@ public class App {
                 asins.add(line.trim());
             }
         } catch (IOException e) {
-            System.out.println("Error reading ASIN file: " + e.getMessage());
+            System.out.println("[" + getCurrentTime() + "] " + "Error reading ASIN file: " + e.getMessage());
         }
         return asins;
     }
@@ -278,7 +285,7 @@ public class App {
             insertProductDataIntoDatabase(locale, title, salesCurrent, salesAvg30, monthlySold, buyBoxShippingCurrent, buyBoxShippingAvg30, sellerName, winnerCount30, winnerCount90, buyBoxEligibleOfferCount, stockAmazon, newPriceCurrent, newPriceAvg30, pickAndPackFee, referralFeePercentage, referralFeeBuyBox, asin, formatEanList(eanList), type, brand);
 
         } catch (Exception e) {
-            System.out.println("Error processing product data: " + e.getMessage());
+            System.out.println("[" + getCurrentTime() + "] " + "Error processing product data: " + e.getMessage());
         }
     }
 
@@ -398,10 +405,10 @@ public class App {
             // Execute the upsert operation
             preparedStatement.executeUpdate();
     
-            System.out.println("Product data upserted successfully into table: " + tableName);
+            System.out.println("[" + getCurrentTime() + "] " + "Product data upserted successfully into table: " + tableName);
     
         } catch (SQLException e) {
-            System.out.println("Error inserting product data into database: " + e.getMessage());
+            System.out.println("[" + getCurrentTime() + "] " + "Error inserting product data into database: " + e.getMessage());
         } finally {
             // Close the resources
             if (preparedStatement != null) {
@@ -493,10 +500,10 @@ public class App {
     
             // Execute the delete operation
             int rowsDeleted = preparedStatement.executeUpdate();
-            System.out.println("Deleted " + rowsDeleted + " old records from table: " + tableName);
+            System.out.println("[" + getCurrentTime() + "] " + "Deleted " + rowsDeleted + " old records from table: " + tableName);
     
         } catch (SQLException e) {
-            System.out.println("Error deleting old data from database: " + e.getMessage());
+            System.out.println("[" + getCurrentTime() + "] " + "Error deleting old data from database: " + e.getMessage());
         } finally {
             // Close the resources
             if (preparedStatement != null) {
