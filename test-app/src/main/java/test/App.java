@@ -216,7 +216,7 @@ public class App {
                 .fail(failure -> System.out.println("[" + getCurrentTime() + "] " + failure));
     
             try {
-                Thread.sleep(20000); // Sleep between batches to avoid hitting API rate limits
+                Thread.sleep(30000); // Sleep between batches to avoid hitting API rate limits
             } catch (InterruptedException e) {
                 System.out.println("[" + getCurrentTime() + "] " + "Thread interrupted: " + e.getMessage());
             }
