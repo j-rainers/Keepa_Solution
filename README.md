@@ -73,6 +73,9 @@ if [ ! -f pom.xml ]; then
     exit 1
 fi
 
+# Kill any existing Java process related to the application
+pkill -f 'org.codehaus.plexus.classworlds.launcher.Launcher'
+
 # Build the project using Maven
 /usr/bin/mvn clean install
 
@@ -108,6 +111,8 @@ crontab -e
 ### 2. Add cronjob
 ```
 * * * * * Keepa_Solution/test-app/run_app.sh >> Keepa_Solution/test-app/cronjob.log 2>&1
+* * * * * pkill -f 'org.codehaus.plexus.classworlds.launcher.Launcher'
+
 ```
 
 ### 3. Verify cronjob
