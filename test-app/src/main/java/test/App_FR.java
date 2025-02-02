@@ -1,9 +1,11 @@
 package test;
 
 import java.io.BufferedReader;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -37,8 +39,15 @@ public class App_FR {
         String apiKey = dotenv.get("API_KEY");
         KeepaAPI api = new KeepaAPI(apiKey);
 
-        processBestSellersForLocale(api, AmazonLocale.FR, 13921051, "FR Keepa Data");
-        // Call this after all locales have been processed
+        // Redirect output to terminal_output.txt
+        try (PrintStream out = new PrintStream(new FileOutputStream("terminal_output.txt", true))) {
+            System.setOut(out);
+            System.setErr(out);
+
+            processBestSellersForLocale(api, AmazonLocale.FR, 13921051, "FR Keepa Data");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private static String getCurrentTime() {
