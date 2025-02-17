@@ -1,11 +1,9 @@
 package test;
 
 import java.io.BufferedReader;
-import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -32,22 +30,21 @@ import io.github.cdimascio.dotenv.Dotenv;
 
 public class App_FR {
     private static final int BATCH_SIZE = 1;
-    private static final int MAX_ASINS = 1000;  // Limit to first 1000 ASINs
+    private static final int MAX_ASINS = 1000;
+    private static final OutputManager out = OutputManager.getInstance();
+
+    // Add this method
+    private static void println(String message) {
+        String formattedMessage = "[" + getCurrentTime() + "] (FR) " + message;
+        out.println(formattedMessage);
+    }
 
     public static void main(String[] args) {
         Dotenv dotenv = Dotenv.load();
         String apiKey = dotenv.get("API_KEY");
         KeepaAPI api = new KeepaAPI(apiKey);
 
-        // Redirect output to terminal_output.txt
-        try (PrintStream out = new PrintStream(new FileOutputStream("terminal_output.txt", true))) {
-            System.setOut(out);
-            System.setErr(out);
-
-            processBestSellersForLocale(api, AmazonLocale.FR, 13921051, "FR Keepa Data");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        processBestSellersForLocale(api, AmazonLocale.FR, 13921051, "FR Keepa Data");
     }
 
     private static String getCurrentTime() {
@@ -63,10 +60,10 @@ public class App_FR {
                 // Write the response to a file
                 try (FileWriter writer = new FileWriter(responseFileName + ".txt")) {
                     writer.write(result.toString());
-                    System.out.println("[" + getCurrentTime() + "] (FR) " + "Data saved to: " + responseFileName + ".txt");
+                    println("Data saved to: " + responseFileName + ".txt");
                     writer.flush();
                 } catch (IOException e) {
-                    System.out.println("[" + getCurrentTime() + "] (FR) " + "Error writing to file: " + e.getMessage());
+                    println("Error writing to file: " + e.getMessage());
                 }
 
                 // Read the response back from the file and process it
@@ -91,21 +88,21 @@ public class App_FR {
                                 asinWriter.write(asinList.getString(i) + System.lineSeparator());
                             }
                             asinWriter.flush();
-                            System.out.println("[" + getCurrentTime() + "] (FR) " + "ASIN list saved to: " + asinFileName);
+                            println("ASIN list saved to: " + asinFileName);
                         } catch (IOException e) {
-                            System.out.println("[" + getCurrentTime() + "] (FR) " + "Error writing ASIN list to file: " + e.getMessage());
+                            println("Error writing ASIN list to file: " + e.getMessage());
                         }
 
                         // Process the first 1000 ASINs in batches for the current locale
                         processAsinBatches(asinFileName, api, locale);
                     } else {
-                        System.out.println("[" + getCurrentTime() + "] (FR) " + "bestSellersList not found in the response.");
+                        println("bestSellersList not found in the response.");
                     }
                 } catch (IOException | JSONException e) {
-                    System.out.println("[" + getCurrentTime() + "] (FR) " + "Error processing JSON from file: " + e.getMessage());
+                    println("Error processing JSON from file: " + e.getMessage());
                 }
             })
-            .fail(failure -> System.out.println(failure));
+            .fail(failure -> println(failure.toString()));
     }
 
     private static void processAsinBatches(String asinFileName, KeepaAPI api, AmazonLocale locale) {
@@ -116,7 +113,7 @@ public class App_FR {
             asins = asins.subList(0, MAX_ASINS);
         }
         int totalAsins = asins.size();
-        System.out.println("[" + getCurrentTime() + "] (FR) " + "Total ASINs to process: " + totalAsins);
+        println("Total ASINs to process: " + totalAsins);
         Collections.reverse(asins);
 
         // Process ASINs in batches
@@ -131,7 +128,7 @@ public class App_FR {
                 .done(sellersResult -> {
                     try (FileWriter sellerWriter = new FileWriter("sellers_data.json")) {
                         sellerWriter.write(sellersResult.toString());
-                        System.out.println("[" + getCurrentTime() + "] (FR) " + "Seller data saved to file.");
+                        println("Seller data saved to file.");
                         sellerWriter.flush();
     
                         // Read and process the seller data
@@ -161,7 +158,7 @@ public class App_FR {
                                 .done(productResult -> {
                                     try (FileWriter writer = new FileWriter("batch_data.json")) {
                                         writer.write(productResult.toString());
-                                        System.out.println("[" + getCurrentTime() + "] (FR) " + "Batch data saved to file.");
+                                        println("Batch data saved to file.");
                                         writer.flush();
     
                                         // Read and process the JSON data for the batch
@@ -198,26 +195,26 @@ public class App_FR {
                                             // Wait for all futures to complete
                                             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
                                         } catch (Exception e) {
-                                            System.out.println("[" + getCurrentTime() + "] (FR) " + "Error parsing batch product JSON: " + e.getMessage());
+                                            println("Error parsing batch product JSON: " + e.getMessage());
                                         }
                                     } catch (IOException e) {
-                                        System.out.println("[" + getCurrentTime() + "] (FR) " + "Error writing batch data: " + e.getMessage());
+                                        println("Error writing batch data: " + e.getMessage());
                                     }
                                 })
-                                .fail(failure -> System.out.println("[" + getCurrentTime() + "] (FR) " + failure));
+                                .fail(failure -> println(failure.toString()));
                         } catch (Exception e) {
-                            System.out.println("[" + getCurrentTime() + "] (FR) " + "Error parsing seller product JSON: " + e.getMessage());
+                            println("Error parsing seller product JSON: " + e.getMessage());
                         }
                     } catch (IOException e) {
-                        System.out.println("[" + getCurrentTime() + "] (FR) " + "Error writing seller batch data: " + e.getMessage());
+                        println("Error writing seller batch data: " + e.getMessage());
                     }
                 })
-                .fail(failure -> System.out.println("[" + getCurrentTime() + "] (FR) " + failure));
+                .fail(failure -> println(failure.toString()));
     
             try {
                 Thread.sleep(30000); // Sleep between batches to avoid hitting API rate limits
             } catch (InterruptedException e) {
-                System.out.println("[" + getCurrentTime() + "] (FR) " + "Thread interrupted: " + e.getMessage());
+                println("Thread interrupted: " + e.getMessage());
             }
         }
     }
@@ -230,7 +227,7 @@ public class App_FR {
                 asins.add(line.trim());
             }
         } catch (IOException e) {
-            System.out.println("[" + getCurrentTime() + "] (FR) " + "Error reading ASIN file: " + e.getMessage());
+            println("Error reading ASIN file: " + e.getMessage());
         }
         return asins;
     }
@@ -284,7 +281,7 @@ public class App_FR {
             insertProductDataIntoDatabase(locale, title, salesCurrent, salesAvg30, monthlySold, buyBoxShippingCurrent, buyBoxShippingAvg30, sellerName, winnerCount30, winnerCount90, buyBoxEligibleOfferCount, stockAmazon, newPriceCurrent, newPriceAvg30, pickAndPackFee, referralFeePercentage, referralFeeBuyBox, asin, formatEanList(eanList), type, brand);
 
         } catch (Exception e) {
-            System.out.println("[" + getCurrentTime() + "] (FR) " + "Error processing product data: " + e.getMessage());
+            println("Error processing product data: " + e.getMessage());
         }
     }
 
@@ -404,10 +401,10 @@ public class App_FR {
             // Execute the upsert operation
             preparedStatement.executeUpdate();
     
-            System.out.println("[" + getCurrentTime() + "] (FR) " + "Product data upserted successfully into table: " + tableName);
+            println("Product data upserted successfully into table: " + tableName);
     
         } catch (SQLException e) {
-            System.out.println("[" + getCurrentTime() + "] (FR) " + "Error inserting product data into database: " + e.getMessage());
+            println("Error inserting product data into database: " + e.getMessage());
         } finally {
             // Close the resources
             if (preparedStatement != null) {
@@ -499,10 +496,10 @@ public class App_FR {
     
             // Execute the delete operation
             int rowsDeleted = preparedStatement.executeUpdate();
-            System.out.println("[" + getCurrentTime() + "] (FR) " + "Deleted " + rowsDeleted + " old records from table: " + tableName);
+            println("Deleted " + rowsDeleted + " old records from table: " + tableName);
     
         } catch (SQLException e) {
-            System.out.println("[" + getCurrentTime() + "] (FR) " + "Error deleting old data from database: " + e.getMessage());
+            println("Error deleting old data from database: " + e.getMessage());
         } finally {
             // Close the resources
             if (preparedStatement != null) {

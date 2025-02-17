@@ -1,0 +1,59 @@
+.root {
+    -fx-font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+.tab-pane {
+    -fx-background-color: #ECF0F1;
+}
+
+.tab {
+    -fx-background-color: #2C3E50;
+    -fx-text-fill: white;
+    -fx-padding: 10px 20px;
+}
+
+.tab:selected {
+    -fx-background-color: #3498DB;
+}
+
+.tab-label {
+    -fx-text-fill: white;
+}
+
+.text-field {
+    -fx-background-radius: 3;
+    -fx-border-radius: 3;
+    -fx-padding: 8;
+}
+
+.text-area {
+    -fx-background-color: white;
+    -fx-border-color: #ced4da;
+    -fx-border-radius: 3;
+}
+
+.check-box {
+    -fx-padding: 10;
+}
+
+.check-box .box {
+    -fx-background-color: white;
+    -fx-border-color: #ced4da;
+    -fx-border-radius: 3;
+}
+
+.check-box:selected .mark {
+    -fx-background-color: white;
+}
+
+.check-box:selected .box {
+    -fx-background-color: #3498DB;
+}
+
+.scroll-pane {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane > .viewport {
+    -fx-background-color: transparent;
+}
