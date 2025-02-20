@@ -29,11 +29,22 @@ import com.keepa.api.backend.structs.Request;
 import io.github.cdimascio.dotenv.Dotenv;
 
 public class App_IT {
+    private static int MAX_ASINS = 1000;  // Default value
+    private static int DELAY_SECONDS = 30; // Default value
     private static final int BATCH_SIZE = 1;
-    private static final int MAX_ASINS = 1000;  // Limit to first 1000 ASINs
     private static final OutputManager out = OutputManager.getInstance();
 
     public static void main(String[] args) {
+        // Get MAX_ASINS and delay from command line arguments if provided
+        if (args.length > 1) {
+            try {
+                MAX_ASINS = Integer.parseInt(args[0]);
+                DELAY_SECONDS = Integer.parseInt(args[1]);
+            } catch (NumberFormatException e) {
+                println("Invalid arguments, using defaults: MAX_ASINS=" + MAX_ASINS + ", DELAY=" + DELAY_SECONDS);
+            }
+        }
+
         Dotenv dotenv = Dotenv.load();
         String apiKey = dotenv.get("API_KEY");
         KeepaAPI api = new KeepaAPI(apiKey);
@@ -211,7 +222,7 @@ public class App_IT {
                 .fail(failure -> println("Request failed: " + failure));
     
             try {
-                Thread.sleep(30000); // Sleep between batches to avoid hitting API rate limits
+                Thread.sleep(DELAY_SECONDS * 1000); // Use configured delay
             } catch (InterruptedException e) {
                 println("Thread interrupted: " + e.getMessage());
             }

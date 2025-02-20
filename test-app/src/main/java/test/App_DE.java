@@ -30,10 +30,19 @@ import io.github.cdimascio.dotenv.Dotenv;
 
 public class App_DE {
     private static final int BATCH_SIZE = 1;
-    private static final int MAX_ASINS = 1000;  // Limit to first 1000 ASINs
+    private static int MAX_ASINS = 1000;  // Limit to first 1000 ASINs
+    private static int DELAY_SECONDS = 30;  // Delay between batches
     private static final OutputManager out = OutputManager.getInstance();
 
     public static void main(String[] args) {
+        if (args.length > 1) {
+            try {
+                MAX_ASINS = Integer.parseInt(args[0]);
+                DELAY_SECONDS = Integer.parseInt(args[1]);
+            } catch (NumberFormatException e) {
+                println("Invalid arguments, using defaults: MAX_ASINS=" + MAX_ASINS + ", DELAY=" + DELAY_SECONDS);
+            }
+        }
         Dotenv dotenv = Dotenv.load();
         String apiKey = dotenv.get("API_KEY");
         KeepaAPI api = new KeepaAPI(apiKey);
@@ -211,7 +220,7 @@ public class App_DE {
                 .fail(failure -> println("[" + getCurrentTime() + "] (DE) " + failure));
     
             try {
-                Thread.sleep(30000); // Sleep between batches to avoid hitting API rate limits
+                Thread.sleep(DELAY_SECONDS * 1000); // Sleep between batches to avoid hitting API rate limits
             } catch (InterruptedException e) {
                 println("[" + getCurrentTime() + "] (DE) " + "Thread interrupted: " + e.getMessage());
             }

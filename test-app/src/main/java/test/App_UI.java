@@ -12,7 +12,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 import org.json.JSONObject;
@@ -599,12 +598,14 @@ public class App_UI extends Application {
                         stopButton.setVisible(true);
                     });
 
-                    // Create ProcessBuilder for the locale app
+                    // Create ProcessBuilder with both product count and delay arguments
                     ProcessBuilder pb = new ProcessBuilder(
                         "java",
                         "-cp",
                         System.getProperty("java.class.path"),
-                        "test.App_" + locale
+                        "test.App_" + locale,
+                        productsField.getText(),  // Pass product count
+                        delayField.getText()      // Pass delay
                     );
                     
                     // Start the process
@@ -795,18 +796,33 @@ public class App_UI extends Application {
         try {
             String content = new String(Files.readAllBytes(Paths.get(fileName)));
             JSONObject json = new JSONObject(content);
-            int tokensLeft = json.getInt("tokensLeft");
             
-            // Update the token parameters from the JSON
-            TOKENS_ADDED_PER_MINUTE = json.getInt("refillRate");
-            TOKEN_LIMIT = TOKENS_ADDED_PER_MINUTE * 60;
-            
-            Platform.runLater(() -> {
-                tokensLeftLabel.setText(String.format("Tokens Left: %d (Refill Rate: %.0f/min, Limit: %.0f)", 
-                    tokensLeft, TOKENS_ADDED_PER_MINUTE, TOKEN_LIMIT));
-            });
+            if (json.has("tokensLeft")) {
+                int tokensLeft = json.getInt("tokensLeft");
+                
+                // Update the token parameters from the JSON only if they exist
+                if (json.has("refillRate")) {
+                    TOKENS_ADDED_PER_MINUTE = json.getInt("refillRate");
+                    TOKEN_LIMIT = TOKENS_ADDED_PER_MINUTE * 60;
+                }
+                
+                Platform.runLater(() -> {
+                    tokensLeftLabel.setText(String.format("Tokens Left: %d (Refill Rate: %.0f/min, Limit: %.0f)", 
+                        tokensLeft, TOKENS_ADDED_PER_MINUTE, TOKEN_LIMIT));
+                });
+            }
         } catch (IOException e) {
-            e.printStackTrace();
+            // Just silently ignore file read errors as we'll try again in 1 second
+        }
+    }
+
+    private void updateTokensLeftFromLatestFile() {
+        try (Stream<java.nio.file.Path> paths = Files.list(Paths.get("."))) {
+            paths.filter(p -> p.toString().endsWith(".json")) // Only look for category data JSON files
+                 .max(Comparator.comparingLong(p -> p.toFile().lastModified()))
+                 .ifPresent(latestFile -> updateTokensLeftLabel(latestFile.toString()));
+        } catch (IOException e) {
+            // Just silently ignore file read errors as we'll try again in 1 second
         }
     }
 
@@ -839,20 +855,6 @@ public class App_UI extends Application {
     private String getCurrentTime() {
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
         return dtf.format(LocalDateTime.now());
-    }
-
-    private void updateTokensLeftFromLatestFile() {
-        try (Stream<java.nio.file.Path> paths = Files.list(Paths.get("."))) {
-            Optional<java.nio.file.Path> latestFile = paths
-                .filter(p -> p.toString().endsWith(".json"))
-                .max(Comparator.comparingLong(p -> p.toFile().lastModified()));
-
-            if (latestFile.isPresent()) {
-                updateTokensLeftLabel(latestFile.get().toString());
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
     private void saveCredentials() {
